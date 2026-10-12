@@ -91,7 +91,7 @@ input::placeholder{color:var(--mu);opacity:1}
  <div class="card"><h2>Log new loan</h2>
   <form id="fLoan"><div><label>Customer (type to search)</label><input id="lc" list="lcl" autocomplete="off" placeholder="Type to search…"><datalist id="lcl"></datalist></div><div><label>Date</label><input id="ld" type="date" required></div><div><label>Principal (₱)</label><input id="lp" type="number" min="0" step="0.01" required></div><div><label>Interest rate (% of principal)</label><input id="lr" type="number" min="0" step="0.01" value="0"></div><div><label>Or fixed amount override (₱)</label><input id="li" type="number" min="0" step="0.01" placeholder="optional"></div><button class="pri">Log loan</button></form><div class="sub" id="lh" style="margin:8px 0 0"></div></div>
  <div class="card"><h2>Log loan payment</h2>
-  <form id="fPay"><div><label>Loan (type a name or date)</label><input id="pl" list="pll" autocomplete="off" placeholder="Type to search…"><datalist id="pll"></datalist></div><div><label>Paying for</label><select id="pt"><option value="interest">Interest</option><option value="principal">Principal</option></select></div><div><label>Date</label><input id="pd" type="date" required></div><div><label>Amount (₱)</label><input id="pa" type="number" min="0" step="0.01" required></div><button class="pri">Log payment</button></form></div>
+  <form id="fPay"><div><label>Loan (type a name or date)</label><input id="pl" list="pll" autocomplete="off" placeholder="Type to search…"><datalist id="pll"></datalist></div><div><label>Paying for</label><select id="pt"><option value="interest">Interest</option><option value="principal">Principal</option></select></div><div><label>Date</label><input id="pd" type="date" required></div><div><label>Amount (₱)</label><input id="pa" type="number" min="0" step="0.01" required></div><button class="pri">Log payment</button></form><div class="sub" id="ph" style="margin:8px 0 0"></div></div>
  <div class="card"><h2>Loans</h2><div class="fbar"></div><div class="scroll" id="loans"></div></div>
  <div class="card"><h2>Payment history</h2><div class="scroll" id="pays"></div></div>
 </section>
@@ -147,8 +147,10 @@ function ledgerRows(){var E=[],q=0,ref=function(l){return 'Loan '+l.date+' · '+
 function owd(v){return '<td class="n ow">'+P(v)+(v<0?' <small>overpaid</small>':'')+'</td>'}
 function lnk(id,txt,go,to,amt){return '<a href="#" class="lk'+(amt?' amt':'')+'" data-cust="'+id+'" data-go="'+go+'" data-to="'+to+'">'+txt+'</a>'}
 var LIM={},PM={};
-function setPick(inp,items){var dl=$(inp.id+'l'),m={},used={};dl.innerHTML=items.map(function(i){var lab=i[1];if(used[lab]){used[lab]++;lab+=' ['+used[lab]+']'}else used[lab]=1;m[lab]=i[0];return '<option value="'+esc(lab).replace(/"/g,'&quot;')+'">'}).join('');PM[inp.id]=m;inp.placeholder=items.length?'Type to search…':'— none yet —'}
-function pv(id){return (PM[id]||{})[$(id).value.trim()]||''}
+function setPick(inp,items){var dl=$(inp.id+'l'),m={},idl={},used={};dl.innerHTML=items.map(function(i){var lab=i[1];if(used[lab]){used[lab]++;lab+=' ['+used[lab]+']'}else used[lab]=1;m[lab]=i[0];idl[i[0]]=lab;return '<option value="'+esc(lab).replace(/"/g,'&quot;')+'">'}).join('');PM[inp.id]=m;inp.placeholder=items.length?'Type to search…':'— none yet —';
+ var d=inp.dataset;if(d.id&&inp.value.trim()===d.lab&&document.activeElement!==inp){if(idl[d.id]){inp.value=idl[d.id];d.lab=inp.value}else{inp.value='';d.id='';d.lab=''}}}
+function pv(id){var v=$(id).value.trim(),m=PM[id]||{};if(m[v])return m[v];var d=$(id).dataset;if(d.id&&d.lab===v){for(var k in m)if(m[k]===d.id)return d.id}return ''}
+['dc','lc','pl'].forEach(function(i){$(i).addEventListener('input',function(){var r=(PM[i]||{})[this.value.trim()];if(r){this.dataset.id=r;this.dataset.lab=this.value.trim()}if(i==='pl')updPh()})});
 function paginate(){['owe','cust','deps','loans','pays','led'].forEach(function(id){var box=$(id);if(!box)return;var nx=box.nextElementSibling;if(nx&&nx.classList.contains('pg'))nx.remove();
  var rows=[].slice.call(box.querySelectorAll('tbody tr'));if(!rows.length)return;var q=(F.q||'').toLowerCase().trim();
  var hit=rows.filter(function(r){var ok=!q||r.textContent.toLowerCase().indexOf(q)>-1;if(!ok)r.remove();return ok});
@@ -165,7 +167,7 @@ function render(){
   if(!S.customers.some(function(c){return c.id===F.c}))F.c='';
   var fh='<div class="frow"><div><label>Filter: customer</label><select class="fc">'+fopts+'</select></div><div><label>From date</label><input class="ff" type="date" value="'+F.from+'"></div><div><label>To date</label><input class="ft" type="date" value="'+F.to+'"></div><div><label>Search rows</label><input class="fq" type="search" placeholder="name, date, amount…" value="'+esc(F.q).replace(/"/g,'&quot;')+'"></div><button type="button" class="pri fx">Clear</button></div>';
   document.querySelectorAll('.fbar').forEach(function(e){if(!e.contains(document.activeElement))e.innerHTML=fh});
-  setPick($('pl'),S.loans.map(function(l){var r=loanRem(l);return[l.id,cname(l.customer)+' · '+l.date+' · principal '+P(r.rp)+' / interest '+P(r.ri)]}));
+  setPick($('pl'),S.loans.map(function(l){return[l.id,cname(l.customer)+' · '+l.date+' · '+P(l.principal)+' loan']}));
   var okC=function(id){return!F.c||id===F.c};
   var fd=S.deposits.filter(function(d){return okC(d.customer)&&inR(d.date)});
   var fl=S.loans.filter(function(l){return okC(l.customer)&&inR(l.date)});
@@ -193,8 +195,9 @@ function render(){
    :'<div class="empty ok">Nobody has an outstanding balance.</div>';
   var le=ledgerRows().filter(function(e){return okC(e.c)&&inR(e.d)});var tdr=sum(le,function(e){return e.dr}),tcr=sum(le,function(e){return e.cr});
   $('led').innerHTML=tbl([['Date'],['Customer'],['Account'],['Particulars'],['Reference'],['Debit',1],['Credit',1],['Balance',1]],le.slice().reverse().map(function(e){var b=e.b,side=b>0?'Dr':b<0?'Cr':'';return '<tr><td>'+e.d+'</td><td>'+lnk(e.c,esc(cname(e.c)),'led','led')+'</td><td>'+e.a+'</td><td>'+esc(e.t)+'</td><td><small>'+esc(e.ref)+'</small></td><td class="n dr">'+(e.dr?P(e.dr):'')+'</td><td class="n cr">'+(e.cr?P(e.cr):'')+'</td><td class="n '+(b>0?'ow':'cr')+'">'+P(Math.abs(b))+' '+side+(b<0&&e.a!=='Savings'?' <small>overpaid</small>':'')+'</td></tr>'}),'No entries match.')+(le.length?'<div class="sub" style="margin:10px 0 0"><b>Totals:</b> Debit '+P(tdr)+' · Credit '+P(tcr)+'</div>':'');
-  paginate();updHint();
+  paginate();updHint();updPh();
 }
+function updPh(){var L=S.loans.find(function(x){return x.id===pv('pl')});$('ph').textContent=L?(function(r){return 'Remaining on this loan: principal '+P(r.rp)+' · interest '+P(r.ri)})(loanRem(L)):''}
 function updHint(){var c=S.customers.find(function(x){return x.id===pv('dc')});$('dh').textContent=c?'Expected per cutoff for '+c.name+': '+P(per(c))+' (15th & 30th)':'Add a customer first.';if(c&&!$('da').value)$('da').value=per(c)||''}
 
 var base=null,dtm=null;
@@ -219,10 +222,10 @@ $('dc').oninput=function(){$('da').value='';updHint()};
 $('fRate').onsubmit=function(e){e.preventDefault();S.rate=parseFloat($('rate').value)||0;commit()};
 $('fCust').onsubmit=function(e){e.preventDefault();S.customers.push({id:uid(),name:$('cn').value.trim(),heads:parseInt($('ch').value,10)||1});e.target.reset();$('ch').value=1;commit()};
 $('fOut').onsubmit=function(e){e.preventDefault();var n=$('on').value.trim();if(!n)return;var ex=S.customers.find(function(c){return c.name.toLowerCase()===n.toLowerCase()});if(!ex)S.customers.push({id:uid(),name:n,heads:0,outsider:true});e.target.reset();commit()};
-$('fDep').onsubmit=function(e){e.preventDefault();if(!pv('dc')){$('msg').textContent='Choose a customer from the suggestions.';return}S.deposits.push({id:uid(),customer:pv('dc'),date:$('dd').value,amount:parseFloat($('da').value)||0});$('da').value='';commit()};
+$('fDep').onsubmit=function(e){e.preventDefault();if(!pv('dc')){dlg('Nothing saved',['Pick the customer from the suggestion list first.']);return}S.deposits.push({id:uid(),customer:pv('dc'),date:$('dd').value,amount:parseFloat($('da').value)||0});$('da').value='';commit()};
 function calcInt(){var p=parseFloat($('lp').value)||0,o=$('li').value.trim(),r=parseFloat($('lr').value)||0;var ov=o!=='';return{amt:ov?(parseFloat(o)||0):Math.round(p*r)/100,ov:ov,r:r}}
 function intHint(){var c=calcInt();$('lh').textContent='Interest: '+P(c.amt)+(c.ov?' (fixed override)':' ('+c.r+'% of principal)')}
-$('fLoan').onsubmit=function(e){e.preventDefault();if(!pv('lc')){$('msg').textContent='Choose a customer from the suggestions.';return}var c=calcInt();S.loans.push({id:uid(),customer:pv('lc'),date:$('ld').value,principal:parseFloat($('lp').value)||0,interest:c.amt,rate:c.r,override:c.ov});$('lp').value='';$('li').value='';intHint();commit()};
+$('fLoan').onsubmit=function(e){e.preventDefault();if(!pv('lc')){dlg('Nothing saved',['Pick the customer from the suggestion list first.']);return}var c=calcInt();S.loans.push({id:uid(),customer:pv('lc'),date:$('ld').value,principal:parseFloat($('lp').value)||0,interest:c.amt,rate:c.r,override:c.ov});$('lp').value='';$('li').value='';intHint();commit()};
 ['lp','lr','li'].forEach(function(i){$(i).oninput=intHint});intHint();
 document.addEventListener('change',function(e){var b=e.target.closest&&e.target.closest('.fbar');if(!b)return;F.c=b.querySelector('.fc').value;F.from=b.querySelector('.ff').value;F.to=b.querySelector('.ft').value;LIM={};render()});
 document.addEventListener('click',function(e){if(e.target.classList&&e.target.classList.contains('fx')){e.target.blur();F={c:'',from:'',to:'',q:''};LIM={};render()}});
@@ -262,7 +265,7 @@ function dl(name,data,mime){if(window.claude&&claude.use){claude.use('downloads'
 $('ex').onclick=function(e){e.preventDefault();dl('ledger-'+today()+'.csv',toCSV(),'text/csv')};
 $('im').onclick=function(e){e.preventDefault();$('fi').click()};
 $('fi').onchange=function(){var f=this.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(){importCSV(String(rd.result))};rd.readAsText(f);this.value=''};
-$('fPay').onsubmit=function(e){e.preventDefault();if(!pv('pl')){$('msg').textContent='Choose a loan from the suggestions.';return}var L=S.loans.find(function(x){return x.id===pv('pl')}),rm=L?loanRem(L):null,amt=parseFloat($('pa').value)||0,tp=$('pt').value;if(rm&&amt>(tp==='principal'?rm.rp:rm.ri)+0.005&&!confirm('This is more than the remaining '+tp+' ('+P(tp==='principal'?rm.rp:rm.ri)+'). It will be recorded as an overpayment. Continue?'))return;S.payments.push({id:uid(),loan:pv('pl'),type:$('pt').value,date:$('pd').value,amount:parseFloat($('pa').value)||0});$('pa').value='';commit()};
+$('fPay').onsubmit=function(e){e.preventDefault();if(!pv('pl')){dlg('Nothing saved',['Pick the loan from the suggestion list first.']);return}var L=S.loans.find(function(x){return x.id===pv('pl')}),rm=L?loanRem(L):null,amt=parseFloat($('pa').value)||0,tp=$('pt').value;if(rm&&amt>(tp==='principal'?rm.rp:rm.ri)+0.005&&!confirm('This is more than the remaining '+tp+' ('+P(tp==='principal'?rm.rp:rm.ri)+'). It will be recorded as an overpayment. Continue?'))return;S.payments.push({id:uid(),loan:pv('pl'),type:$('pt').value,date:$('pd').value,amount:parseFloat($('pa').value)||0});$('pa').value='';commit()};
 document.addEventListener('click',function(e){var k=e.target.getAttribute&&e.target.getAttribute('data-del');if(!k)return;var t=k[0],id=k.slice(2);
   if(!confirm('Delete this entry?'+(t==='c'?' Its deposits and loans will be removed too.':t==='l'?' Its payments will be removed too.':'')))return;
   if(t==='c'){var lid=S.loans.filter(function(l){return l.customer===id}).map(function(l){return l.id});S.payments=S.payments.filter(function(p){return lid.indexOf(p.loan)<0});S.loans=S.loans.filter(function(l){return l.customer!==id});S.deposits=S.deposits.filter(function(d){return d.customer!==id});S.customers=S.customers.filter(function(c){return c.id!==id})}
