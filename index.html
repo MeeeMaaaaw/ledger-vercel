@@ -36,7 +36,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}.x{background:none;
 <section class="sec" id="s-sum">
  <div class="card"><div class="grid" id="tot"></div></div>
  <div class="card"><h2>Per customer</h2><div class="scroll" id="cust"></div>
- <div class="sub" style="margin:8px 0 0">Projected income = total loan interest (paid + unpaid) on loans dated this year. Projected savings = monthly savings × 12.</div></div>
+ <div class="sub" style="margin:8px 0 0">Projected income per head = total interest on all loans ÷ total head count of all customers. A customer's projected income = that per-head amount × their heads. Projected savings = monthly savings × 12.</div></div>
 </section>
 
 <section class="sec" id="s-acc">
@@ -114,12 +114,12 @@ function render(){
   var dep=sum(fd,function(d){return d.amount});
   var lent=sum(fl,function(l){return l.principal}),intT=sum(fl,function(l){return l.interest});
   var rm=fl.map(loanRem);var pp=sum(rm,function(r){return r.pp}),ip=sum(rm,function(r){return r.ip});
-  var proj=sum(fl.filter(function(l){return l.date.slice(0,4)===yr}),function(l){return l.interest});
-  var stats=[['Total deposited',dep],['Total loaned (principal)',lent],['Principal collected',pp],['Principal outstanding',lent-pp],['Total interest charged',intT],['Interest collected',ip],['Interest outstanding',intT-ip],['Projected interest income '+yr,proj]];
+  var allInt=sum(S.loans,function(l){return l.interest}),allHeads=sum(S.customers,function(c){return c.heads}),ph=allHeads?allInt/allHeads:0,proj=ph*sum(S.customers.filter(function(c){return okC(c.id)}),function(c){return c.heads});
+  var stats=[['Total deposited',dep],['Total loaned (principal)',lent],['Principal collected',pp],['Principal outstanding',lent-pp],['Total interest charged',intT],['Interest collected',ip],['Interest outstanding',intT-ip],['Projected income per head',ph],['Projected interest income',proj]];
   $('tot').innerHTML=stats.map(function(s){return '<div class="stat"><b>'+P(s[1])+'</b><span>'+s[0]+'</span></div>'}).join('');
   $('cust').innerHTML=tbl([['Customer'],['Heads',1],['Per cutoff',1],['Deposited',1],['Projected savings '+yr,1],['Loaned',1],['Balance owed',1],['Interest paid',1],['Projected income',1],['','']],
-   S.customers.filter(function(c){return okC(c.id)}).map(function(c){var ls=fl.filter(function(l){return l.customer===c.id});var bal=0,ipd=0,pi=0;ls.forEach(function(l){var r=loanRem(l);bal+=r.rp+r.ri;ipd+=r.ip;if(l.date.slice(0,4)===yr)pi+=l.interest});
-    return '<tr><td>'+esc(c.name)+'</td><td class="n">'+c.heads+'</td><td class="n">'+P(per(c))+'</td><td class="n">'+P(sum(fd.filter(function(d){return d.customer===c.id}),function(d){return d.amount}))+'</td><td class="n">'+P(S.rate*c.heads*12)+'</td><td class="n">'+P(sum(ls,function(l){return l.principal}))+'</td><td class="n">'+P(bal)+'</td><td class="n">'+P(ipd)+'</td><td class="n"><b>'+P(pi)+'</b></td><td><button class="x" data-del="c:'+c.id+'" title="Delete customer">×</button></td></tr>'}),'No customers match.');
+   S.customers.filter(function(c){return okC(c.id)}).map(function(c){var ls=fl.filter(function(l){return l.customer===c.id});var bal=0,ipd=0,pi=0;ls.forEach(function(l){var r=loanRem(l);bal+=r.rp+r.ri;ipd+=r.ip});
+    return '<tr><td>'+esc(c.name)+'</td><td class="n">'+c.heads+'</td><td class="n">'+P(per(c))+'</td><td class="n">'+P(sum(fd.filter(function(d){return d.customer===c.id}),function(d){return d.amount}))+'</td><td class="n">'+P(S.rate*c.heads*12)+'</td><td class="n">'+P(sum(ls,function(l){return l.principal}))+'</td><td class="n">'+P(bal)+'</td><td class="n">'+P(ipd)+'</td><td class="n"><b>'+P(ph*c.heads)+'</b></td><td><button class="x" data-del="c:'+c.id+'" title="Delete customer">×</button></td></tr>'}),'No customers match.');
   var sorted=fd.slice().sort(function(a,b){return b.date<a.date?-1:1});
   $('deps').innerHTML=tbl([['Date'],['Customer'],['Cutoff'],['Amount',1],['Expected',1],['']],sorted.map(function(d){var c=S.customers.find(function(x){return x.id===d.customer});var ex=c?per(c):0;
     return '<tr><td>'+d.date+'</td><td>'+esc(cname(d.customer))+'</td><td>'+cut(d.date)+'</td><td class="n">'+P(d.amount)+'</td><td class="n '+(d.amount<ex?'bad':'ok')+'">'+P(ex)+'</td><td><button class="x" data-del="d:'+d.id+'">×</button></td></tr>'}),'No deposits match.');
