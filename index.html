@@ -52,6 +52,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}.x{background:none;
 </section>
 
 <section class="sec" id="s-loan">
+ <div class="card"><h2>Add outside borrower</h2><form id="fOut"><div><label>Borrower name</label><input id="on" required></div><button class="pri">Add borrower</button></form><div class="sub" style="margin:8px 0 0">For people without a savings account. They have no head count and cannot log savings deposits.</div></div>
  <div class="card"><h2>Log new loan</h2>
   <form id="fLoan"><div><label>Customer</label><select id="lc"></select></div><div><label>Date</label><input id="ld" type="date" required></div><div><label>Principal (₱)</label><input id="lp" type="number" min="0" step="0.01" required></div><div><label>Interest rate (% of principal)</label><input id="lr" type="number" min="0" step="0.01" value="0"></div><div><label>Or fixed amount override (₱)</label><input id="li" type="number" min="0" step="0.01" placeholder="optional"></div><button class="pri">Log loan</button></form><div class="sub" id="lh" style="margin:8px 0 0"></div></div>
  <div class="card"><h2>Log loan payment</h2>
@@ -103,7 +104,7 @@ function inR(d){return(!F.from||d>=F.from)&&(!F.to||d<=F.to)}
 function render(){
   if(document.activeElement!==$('rate'))$('rate').value=S.rate||'';
   var cs=S.customers.map(function(c){return[c.id,c.name+' ('+c.heads+' head'+(c.heads>1?'s':'')+')']});
-  opts($('dc'),cs);opts($('lc'),cs);
+  opts($('dc'),S.customers.filter(function(c){return!c.outsider}).map(function(c){return[c.id,c.name+' ('+c.heads+' head'+(c.heads>1?'s':'')+')']}));opts($('lc'),S.customers.map(function(c){return[c.id,c.name+(c.outsider?' (outsider)':' ('+c.heads+' head'+(c.heads>1?'s':'')+')')]}));
   $('fc').innerHTML='<option value="">All customers</option>'+S.customers.map(function(c){return '<option value="'+c.id+'">'+esc(c.name)+'</option>'}).join('');$('fc').value=F.c;F.c=$('fc').value;
   opts($('pl'),S.loans.map(function(l){var r=loanRem(l);return[l.id,cname(l.customer)+' · '+l.date+' · bal '+P(r.rp+r.ri)]}));
   var okC=function(id){return!F.c||id===F.c};
@@ -119,7 +120,7 @@ function render(){
   $('tot').innerHTML=stats.map(function(s){return '<div class="stat"><b>'+P(s[1])+'</b><span>'+s[0]+'</span></div>'}).join('');
   $('cust').innerHTML=tbl([['Customer'],['Heads',1],['Per cutoff',1],['Deposited',1],['Projected savings '+yr,1],['Loaned',1],['Balance owed',1],['Interest paid',1],['Projected income',1],['','']],
    S.customers.filter(function(c){return okC(c.id)}).map(function(c){var ls=fl.filter(function(l){return l.customer===c.id});var bal=0,ipd=0,pi=0;ls.forEach(function(l){var r=loanRem(l);bal+=r.rp+r.ri;ipd+=r.ip});
-    return '<tr><td>'+esc(c.name)+'</td><td class="n">'+c.heads+'</td><td class="n">'+P(per(c))+'</td><td class="n">'+P(sum(fd.filter(function(d){return d.customer===c.id}),function(d){return d.amount}))+'</td><td class="n">'+P(S.rate*c.heads*12)+'</td><td class="n">'+P(sum(ls,function(l){return l.principal}))+'</td><td class="n">'+P(bal)+'</td><td class="n">'+P(ipd)+'</td><td class="n"><b>'+P(ph*c.heads)+'</b></td><td><button class="x" data-del="c:'+c.id+'" title="Delete customer">×</button></td></tr>'}),'No customers match.');
+    return '<tr><td>'+esc(c.name)+(c.outsider?' <small>outsider</small>':'')+'</td><td class="n">'+c.heads+'</td><td class="n">'+P(per(c))+'</td><td class="n">'+P(sum(fd.filter(function(d){return d.customer===c.id}),function(d){return d.amount}))+'</td><td class="n">'+P(S.rate*c.heads*12)+'</td><td class="n">'+P(sum(ls,function(l){return l.principal}))+'</td><td class="n">'+P(bal)+'</td><td class="n">'+P(ipd)+'</td><td class="n"><b>'+P(ph*c.heads)+'</b></td><td><button class="x" data-del="c:'+c.id+'" title="Delete customer">×</button></td></tr>'}),'No customers match.');
   var sorted=fd.slice().sort(function(a,b){return b.date<a.date?-1:1});
   $('deps').innerHTML=tbl([['Date'],['Customer'],['Cutoff'],['Amount',1],['Expected',1],['']],sorted.map(function(d){var c=S.customers.find(function(x){return x.id===d.customer});var ex=c?per(c):0;
     return '<tr><td>'+d.date+'</td><td>'+esc(cname(d.customer))+'</td><td>'+cut(d.date)+'</td><td class="n">'+P(d.amount)+'</td><td class="n '+(d.amount<ex?'bad':'ok')+'">'+P(ex)+'</td><td><button class="x" data-del="d:'+d.id+'">×</button></td></tr>'}),'No deposits match.');
@@ -135,6 +136,7 @@ function commit(){save();render()}
 $('dc').onchange=function(){$('da').value='';updHint()};
 $('fRate').onsubmit=function(e){e.preventDefault();S.rate=parseFloat($('rate').value)||0;commit()};
 $('fCust').onsubmit=function(e){e.preventDefault();S.customers.push({id:uid(),name:$('cn').value.trim(),heads:parseInt($('ch').value,10)||1});e.target.reset();$('ch').value=1;commit()};
+$('fOut').onsubmit=function(e){e.preventDefault();var n=$('on').value.trim();if(!n)return;var ex=S.customers.find(function(c){return c.name.toLowerCase()===n.toLowerCase()});if(!ex)S.customers.push({id:uid(),name:n,heads:0,outsider:true});e.target.reset();commit()};
 $('fDep').onsubmit=function(e){e.preventDefault();if(!$('dc').value)return;S.deposits.push({id:uid(),customer:$('dc').value,date:$('dd').value,amount:parseFloat($('da').value)||0});$('da').value='';commit()};
 function calcInt(){var p=parseFloat($('lp').value)||0,o=$('li').value.trim(),r=parseFloat($('lr').value)||0;var ov=o!=='';return{amt:ov?(parseFloat(o)||0):Math.round(p*r)/100,ov:ov,r:r}}
 function intHint(){var c=calcInt();$('lh').textContent='Interest: '+P(c.amt)+(c.ov?' (fixed override)':' ('+c.r+'% of principal)')}
@@ -162,14 +164,14 @@ function parseCSV(t){var rows=[],row=[],f='',inq=false;t=t.replace(/^\uFEFF/,'')
  return rows}
 function importCSV(text){var rows=parseCSV(text);if(!rows.length)return;var h=rows.shift().map(function(x){return x.trim().toLowerCase()}),n=0,sk=0;
  var byName=function(nm){nm=(nm||'').trim().toLowerCase();return S.customers.find(function(x){return x.name.toLowerCase()===nm})};
- var ensure=function(nm){var c=byName(nm);if(!c){c={id:uid(),name:(nm||'').trim(),heads:1};S.customers.push(c)}return c};
+ var ensure=function(nm,out){var c=byName(nm);if(!c){c={id:uid(),name:(nm||'').trim(),heads:out?0:1,outsider:!!out};S.customers.push(c)}return c};
  var has=function(a,id){return id&&a.some(function(x){return x.id===id})};
  var okD=function(d){return /^\d{4}-\d{2}-\d{2}$/.test(d)};var num=function(v){return parseFloat(v)||0};
  rows.forEach(function(r){if(r.join('')==='')return;var o={};h.forEach(function(k,i){o[k]=(r[i]||'').trim()});var t=o.type;
   if(t==='setting'){if(num(o.amount))S.rate=num(o.amount);n++}
-  else if(t==='customer'){if(!o.customer||byName(o.customer)){sk++;return}S.customers.push({id:o.id||uid(),name:o.customer,heads:parseInt(o.heads,10)||1});n++}
+  else if(t==='customer'){if(!o.customer||byName(o.customer)){sk++;return}var hh=parseInt(o.heads,10);if(isNaN(hh))hh=1;S.customers.push({id:o.id||uid(),name:o.customer,heads:hh,outsider:hh===0});n++}
   else if(t==='deposit'){if(!o.customer||!okD(o.date)||has(S.deposits,o.id)){sk++;return}S.deposits.push({id:o.id||uid(),customer:ensure(o.customer).id,date:o.date,amount:num(o.amount)});n++}
-  else if(t==='loan'){if(!o.customer||!okD(o.date)||has(S.loans,o.id)){sk++;return}var pr=num(o.principal),ov=o.override!==''&&o.override!=='0',rt=num(o.rate),it=o.interest!==''?num(o.interest):Math.round(pr*rt)/100;S.loans.push({id:o.id||uid(),customer:ensure(o.customer).id,date:o.date,principal:pr,interest:it,rate:rt,override:ov});n++}
+  else if(t==='loan'){if(!o.customer||!okD(o.date)||has(S.loans,o.id)){sk++;return}var pr=num(o.principal),ov=o.override!==''&&o.override!=='0',rt=num(o.rate),it=o.interest!==''?num(o.interest):Math.round(pr*rt)/100;S.loans.push({id:o.id||uid(),customer:ensure(o.customer,true).id,date:o.date,principal:pr,interest:it,rate:rt,override:ov});n++}
   else if(t==='payment'){if(!S.loans.some(function(l){return l.id===o.loan_id})||!okD(o.date)||has(S.payments,o.id)){sk++;return}S.payments.push({id:o.id||uid(),loan:o.loan_id,type:o.pay_type==='principal'?'principal':'interest',date:o.date,amount:num(o.amount)});n++}
   else sk++});
  commit();$('msg').textContent='Imported '+n+' rows'+(sk?', skipped '+sk+' (duplicates, unknown loan_id, or dates not in YYYY-MM-DD)':'')}
