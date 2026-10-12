@@ -2,5 +2,10 @@
   "name": "savings-lending-ledger",
   "version": "1.0.0",
   "private": true,
-  "scripts": { "build": "node build.js" }
+  "scripts": {
+    "build": "node build.js"
+  },
+  "dependencies": {
+    "@vercel/analytics": "^2.0.1"
+  }
 }
