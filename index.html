@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Savings & Lending Ledger</title>
+<style>
+:root{--bg:#f5f5f7;--card:#fff;--tx:#1d1d1f;--mu:#6e6e73;--bd:rgba(0,0,0,.1);--ac:#0071e3;--ac2:#f5f5f7;--rd:#d70015;--ok:#248a3d;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#000;--card:#1c1c1e;--tx:#f5f5f7;--mu:#a1a1a6;--bd:rgba(255,255,255,.14);--ac:#2997ff;--ac2:#2c2c2e;--rd:#ff453a;--ok:#30d158}}
+:root[data-theme="dark"]{--bg:#000;--card:#1c1c1e;--tx:#f5f5f7;--mu:#a1a1a6;--bd:rgba(255,255,255,.14);--ac:#2997ff;--ac2:#2c2c2e;--rd:#ff453a;--ok:#30d158}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.47 -apple-system,BlinkMacSystemFont,"SF Pro Text","Inter","Helvetica Neue",Arial,sans-serif;letter-spacing:-.01em;-webkit-font-smoothing:antialiased}
+main{max-width:1020px;margin:0 auto;padding:32px 18px}
+h1{font-size:clamp(28px,5vw,40px);font-weight:700;letter-spacing:-.03em;margin:0 0 6px}h2{font-size:19px;font-weight:600;letter-spacing:-.02em;margin:0 0 14px}
+.sub{color:var(--mu);font-size:13px;margin-bottom:18px}a{color:var(--ac);text-decoration:none}
+nav{display:inline-flex;gap:2px;padding:3px;background:var(--bd);border-radius:11px;margin:0 0 18px}
+nav button{border:0;background:none;color:var(--tx);padding:7px 20px;border-radius:9px;cursor:pointer;font:inherit;font-weight:500}
+nav button.on{background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.18)}
+.card{background:var(--card);border-radius:20px;padding:22px;margin-bottom:16px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.stat{background:var(--ac2);border-radius:16px;padding:14px 16px}.stat b{display:block;font-size:22px;font-weight:600;letter-spacing:-.02em}.stat span{font-size:12px;color:var(--mu)}
+form{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;align-items:end}
+label{font-size:12px;color:var(--mu);display:block;margin-bottom:4px}
+input,select{width:100%;padding:10px 12px;border:1px solid var(--bd);border-radius:10px;background:var(--ac2);color:var(--tx);font:inherit;outline:none}
+input:focus,select:focus{border-color:var(--ac);box-shadow:0 0 0 3px rgba(0,113,227,.25)}
+button.pri{background:var(--ac);color:#fff;border:0;padding:10px 20px;border-radius:980px;cursor:pointer;font:inherit;font-weight:500}
+.scroll{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:560px}
+th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--bd);white-space:nowrap}th{font-size:12px;color:var(--mu);font-weight:500}tr:last-child td{border-bottom:0}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}.x{background:none;border:0;color:var(--rd);cursor:pointer;font-size:18px}small{color:var(--mu)}
+.empty{color:var(--mu);padding:8px 0}.ok{color:var(--ok)}.bad{color:var(--rd)}
+.sec{display:none}.sec.on{display:block}#st{font-size:12px;color:var(--mu)}
+</style></head><body><main>
+<h1>Savings & Lending Ledger</h1><div class="sub">Amounts in pesos (₱) · <span id="st">loading…</span> · <a href="#" id="ex">Export CSV</a> · <a href="#" id="im">Import CSV</a><input type="file" id="fi" accept=".csv,text/csv" hidden> <span id="msg"></span> · <a href="#" id="so">Sign out</a></div>
+<div class="card" id="login"><h2>Sign in</h2><form id="fLogin"><div><label>Email</label><input id="le" type="email" required autocomplete="username"></div><div><label>Password</label><input id="lw" type="password" required autocomplete="current-password"></div><button class="pri">Sign in</button></form><div class="sub" id="lmsg" style="margin:8px 0 0"></div></div>
+<div id="app" style="display:none">
+<nav id="nav"></nav>
+<div class="card"><form id="fF"><div><label>Filter: customer</label><select id="fc"></select></div><div><label>From date</label><input id="ff" type="date"></div><div><label>To date</label><input id="ft" type="date"></div><button type="button" class="pri" id="fx">Clear filters</button></form><div class="sub" style="margin:8px 0 0">Filters apply to the summary, deposits, loans and payments.</div></div>
+
+<section class="sec" id="s-sum">
+ <div class="card"><div class="grid" id="tot"></div></div>
+ <div class="card"><h2>Per customer</h2><div class="scroll" id="cust"></div>
+ <div class="sub" style="margin:8px 0 0">Projected income = total loan interest (paid + unpaid) on loans dated this year. Projected savings = monthly savings × 12.</div></div>
+</section>
+
+<section class="sec" id="s-acc">
+ <div class="card"><h2>Admin setting</h2>
+  <form id="fRate"><div><label>Monthly savings per head (₱)</label><input id="rate" type="number" min="0" step="0.01" required></div><button class="pri">Save rate</button></form>
+  <div class="sub" style="margin:8px 0 0">Applies to all accounts. Each customer pays (rate × heads) ÷ 2 on the 15th and 30th.</div></div>
+ <div class="card"><h2>New savings account</h2>
+  <form id="fCust"><div><label>Customer name</label><input id="cn" required></div><div><label>Head count</label><input id="ch" type="number" min="1" step="1" value="1" required></div><button class="pri">Add customer</button></form></div>
+ <div class="card"><h2>Log savings deposit</h2>
+  <form id="fDep"><div><label>Customer</label><select id="dc"></select></div><div><label>Date</label><input id="dd" type="date" required></div><div><label>Amount (₱)</label><input id="da" type="number" min="0" step="0.01" required></div><button class="pri">Log deposit</button></form>
+  <div class="sub" id="dh" style="margin:8px 0 0"></div></div>
+ <div class="card"><h2>Deposit history</h2><div class="scroll" id="deps"></div></div>
+</section>
+
+<section class="sec" id="s-loan">
+ <div class="card"><h2>Log new loan</h2>
+  <form id="fLoan"><div><label>Customer</label><select id="lc"></select></div><div><label>Date</label><input id="ld" type="date" required></div><div><label>Principal (₱)</label><input id="lp" type="number" min="0" step="0.01" required></div><div><label>Interest rate (% of principal)</label><input id="lr" type="number" min="0" step="0.01" value="0"></div><div><label>Or fixed amount override (₱)</label><input id="li" type="number" min="0" step="0.01" placeholder="optional"></div><button class="pri">Log loan</button></form><div class="sub" id="lh" style="margin:8px 0 0"></div></div>
+ <div class="card"><h2>Log loan payment</h2>
+  <form id="fPay"><div><label>Loan</label><select id="pl"></select></div><div><label>Paying for</label><select id="pt"><option value="interest">Interest</option><option value="principal">Principal</option></select></div><div><label>Date</label><input id="pd" type="date" required></div><div><label>Amount (₱)</label><input id="pa" type="number" min="0" step="0.01" required></div><button class="pri">Log payment</button></form></div>
+ <div class="card"><h2>Loans</h2><div class="scroll" id="loans"></div></div>
+ <div class="card"><h2>Payment history</h2><div class="scroll" id="pays"></div></div>
+</section>
+
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+(function(){
+var S={rate:0,customers:[],deposits:[],loans:[],payments:[]},db=null,doc=null,tab='sum',ready=false;
+var $=function(i){return document.getElementById(i)};
+var fmt=new Intl.NumberFormat('en-PH',{style:'currency',currency:'PHP'});
+var P=function(n){return fmt.format(n||0)};
+function esc(s){var d=document.createElement('div');d.textContent=String(s==null?'':s);return d.innerHTML}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+function today(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function cname(id){var c=S.customers.find(function(x){return x.id===id});return c?c.name:'(deleted)'}
+function cut(d){return parseInt(d.slice(8,10),10)<=15?'15th':'30th'}
+function sum(a,f){return a.reduce(function(t,x){return t+(f?f(x):x)},0)}
+function per(c){return S.rate*c.heads/2}
+
+var CFG={url:'YOUR_SUPABASE_URL',key:'YOUR_SUPABASE_ANON_KEY'};
+var sb=null,ver=null;
+function save(){
+  if(!sb)return;var now=new Date().toISOString();
+  var q=ver?sb.from('ledger').update({data:S,updated_at:now}).eq('id','main').eq('updated_at',ver).select():sb.from('ledger').insert({id:'main',data:S,updated_at:now}).select();
+  q.then(function(r){if(r.error){$('st').textContent='save failed: '+r.error.message;return}
+   if(!r.data||!r.data.length){$('st').textContent='Someone else saved first. Reloaded the latest, please redo your last entry.';pull();return}
+   ver=r.data[0].updated_at;$('st').textContent='saved'})}
+function pull(){return sb.from('ledger').select('data,updated_at').eq('id','main').maybeSingle().then(function(r){if(r.error){$('st').textContent='load failed: '+r.error.message;return}
+  if(r.data){S=Object.assign({rate:0,customers:[],deposits:[],loans:[],payments:[]},r.data.data);ver=r.data.updated_at}render();$('st').textContent='synced'})}
+function show(on){$('app').style.display=on?'':'none';$('login').style.display=on?'none':''}
+function load(j){try{var o=JSON.parse(j);if(o&&o.customers)S=Object.assign({rate:0,customers:[],deposits:[],loans:[],payments:[]},o)}catch(e){}}
+
+var tabs=[['sum','Summary'],['acc','Savings'],['loan','Loans']];
+function nav(){$('nav').innerHTML=tabs.map(function(t){return '<button data-t="'+t[0]+'" class="'+(t[0]===tab?'on':'')+'">'+t[1]+'</button>'}).join('');
+  tabs.forEach(function(t){$('s-'+t[0]).className='sec'+(t[0]===tab?' on':'')})}
+$('nav').onclick=function(e){var t=e.target.getAttribute('data-t');if(t){tab=t;nav()}};
+
+function opts(sel,items,keep){var v=sel.value;sel.innerHTML=items.length?items.map(function(i){return '<option value="'+esc(i[0])+'">'+esc(i[1])+'</option>'}).join(''):'<option value="">— none yet —</option>';if(v&&items.some(function(i){return i[0]===v}))sel.value=v}
+function tbl(head,rows,empty){if(!rows.length)return '<div class="empty">'+empty+'</div>';return '<table><thead><tr>'+head.map(function(h){return '<th'+(h[1]?' class="n"':'')+'>'+h[0]+'</th>'}).join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table>'}
+function loanRem(l){var pp=sum(S.payments.filter(function(p){return p.loan===l.id&&p.type==='principal'}),function(p){return p.amount});var ip=sum(S.payments.filter(function(p){return p.loan===l.id&&p.type==='interest'}),function(p){return p.amount});return{pp:pp,ip:ip,rp:l.principal-pp,ri:l.interest-ip}}
+
+var F={c:'',from:'',to:''};
+function inR(d){return(!F.from||d>=F.from)&&(!F.to||d<=F.to)}
+function render(){
+  if(document.activeElement!==$('rate'))$('rate').value=S.rate||'';
+  var cs=S.customers.map(function(c){return[c.id,c.name+' ('+c.heads+' head'+(c.heads>1?'s':'')+')']});
+  opts($('dc'),cs);opts($('lc'),cs);
+  $('fc').innerHTML='<option value="">All customers</option>'+S.customers.map(function(c){return '<option value="'+c.id+'">'+esc(c.name)+'</option>'}).join('');$('fc').value=F.c;F.c=$('fc').value;
+  opts($('pl'),S.loans.map(function(l){var r=loanRem(l);return[l.id,cname(l.customer)+' · '+l.date+' · bal '+P(r.rp+r.ri)]}));
+  var okC=function(id){return!F.c||id===F.c};
+  var fd=S.deposits.filter(function(d){return okC(d.customer)&&inR(d.date)});
+  var fl=S.loans.filter(function(l){return okC(l.customer)&&inR(l.date)});
+  var fp=S.payments.filter(function(p){var l=S.loans.find(function(x){return x.id===p.loan});return l&&okC(l.customer)&&inR(p.date)});
+  var yr=String(new Date().getFullYear());
+  var dep=sum(fd,function(d){return d.amount});
+  var lent=sum(fl,function(l){return l.principal}),intT=sum(fl,function(l){return l.interest});
+  var rm=fl.map(loanRem);var pp=sum(rm,function(r){return r.pp}),ip=sum(rm,function(r){return r.ip});
+  var proj=sum(fl.filter(function(l){return l.date.slice(0,4)===yr}),function(l){return l.interest});
+  var stats=[['Total deposited',dep],['Total loaned (principal)',lent],['Principal collected',pp],['Principal outstanding',lent-pp],['Total interest charged',intT],['Interest collected',ip],['Interest outstanding',intT-ip],['Projected interest income '+yr,proj]];
+  $('tot').innerHTML=stats.map(function(s){return '<div class="stat"><b>'+P(s[1])+'</b><span>'+s[0]+'</span></div>'}).join('');
+  $('cust').innerHTML=tbl([['Customer'],['Heads',1],['Per cutoff',1],['Deposited',1],['Projected savings '+yr,1],['Loaned',1],['Balance owed',1],['Interest paid',1],['Projected income',1],['','']],
+   S.customers.filter(function(c){return okC(c.id)}).map(function(c){var ls=fl.filter(function(l){return l.customer===c.id});var bal=0,ipd=0,pi=0;ls.forEach(function(l){var r=loanRem(l);bal+=r.rp+r.ri;ipd+=r.ip;if(l.date.slice(0,4)===yr)pi+=l.interest});
+    return '<tr><td>'+esc(c.name)+'</td><td class="n">'+c.heads+'</td><td class="n">'+P(per(c))+'</td><td class="n">'+P(sum(fd.filter(function(d){return d.customer===c.id}),function(d){return d.amount}))+'</td><td class="n">'+P(S.rate*c.heads*12)+'</td><td class="n">'+P(sum(ls,function(l){return l.principal}))+'</td><td class="n">'+P(bal)+'</td><td class="n">'+P(ipd)+'</td><td class="n"><b>'+P(pi)+'</b></td><td><button class="x" data-del="c:'+c.id+'" title="Delete customer">×</button></td></tr>'}),'No customers match.');
+  var sorted=fd.slice().sort(function(a,b){return b.date<a.date?-1:1});
+  $('deps').innerHTML=tbl([['Date'],['Customer'],['Cutoff'],['Amount',1],['Expected',1],['']],sorted.map(function(d){var c=S.customers.find(function(x){return x.id===d.customer});var ex=c?per(c):0;
+    return '<tr><td>'+d.date+'</td><td>'+esc(cname(d.customer))+'</td><td>'+cut(d.date)+'</td><td class="n">'+P(d.amount)+'</td><td class="n '+(d.amount<ex?'bad':'ok')+'">'+P(ex)+'</td><td><button class="x" data-del="d:'+d.id+'">×</button></td></tr>'}),'No deposits match.');
+  $('loans').innerHTML=tbl([['Date'],['Customer'],['Principal',1],['Interest',1],['Principal left',1],['Interest left',1],['']],fl.map(function(l){var r=loanRem(l);
+    return '<tr><td>'+l.date+'</td><td>'+esc(cname(l.customer))+'</td><td class="n">'+P(l.principal)+'</td><td class="n">'+P(l.interest)+(l.override?' <small>override</small>':l.rate?' <small>'+l.rate+'%</small>':'')+'</td><td class="n">'+P(r.rp)+'</td><td class="n">'+P(r.ri)+'</td><td><button class="x" data-del="l:'+l.id+'">×</button></td></tr>'}),'No loans match.');
+  $('pays').innerHTML=tbl([['Date'],['Customer'],['Type'],['Amount',1],['']],fp.slice().sort(function(a,b){return b.date<a.date?-1:1}).map(function(p){var l=S.loans.find(function(x){return x.id===p.loan});
+    return '<tr><td>'+p.date+'</td><td>'+esc(l?cname(l.customer):'(deleted)')+'</td><td>'+p.type+'</td><td class="n">'+P(p.amount)+'</td><td><button class="x" data-del="p:'+p.id+'">×</button></td></tr>'}),'No payments match.');
+  updHint();
+}
+function updHint(){var c=S.customers.find(function(x){return x.id===$('dc').value});$('dh').textContent=c?'Expected per cutoff for '+c.name+': '+P(per(c))+' (15th & 30th)':'Add a customer first.';if(c&&!$('da').value)$('da').value=per(c)||''}
+
+function commit(){save();render()}
+$('dc').onchange=function(){$('da').value='';updHint()};
+$('fRate').onsubmit=function(e){e.preventDefault();S.rate=parseFloat($('rate').value)||0;commit()};
+$('fCust').onsubmit=function(e){e.preventDefault();S.customers.push({id:uid(),name:$('cn').value.trim(),heads:parseInt($('ch').value,10)||1});e.target.reset();$('ch').value=1;commit()};
+$('fDep').onsubmit=function(e){e.preventDefault();if(!$('dc').value)return;S.deposits.push({id:uid(),customer:$('dc').value,date:$('dd').value,amount:parseFloat($('da').value)||0});$('da').value='';commit()};
+function calcInt(){var p=parseFloat($('lp').value)||0,o=$('li').value.trim(),r=parseFloat($('lr').value)||0;var ov=o!=='';return{amt:ov?(parseFloat(o)||0):Math.round(p*r)/100,ov:ov,r:r}}
+function intHint(){var c=calcInt();$('lh').textContent='Interest: '+P(c.amt)+(c.ov?' (fixed override)':' ('+c.r+'% of principal)')}
+$('fLoan').onsubmit=function(e){e.preventDefault();if(!$('lc').value)return;var c=calcInt();S.loans.push({id:uid(),customer:$('lc').value,date:$('ld').value,principal:parseFloat($('lp').value)||0,interest:c.amt,rate:c.r,override:c.ov});$('lp').value='';$('li').value='';intHint();commit()};
+['lp','lr','li'].forEach(function(i){$(i).oninput=intHint});intHint();
+$('fc').onchange=$('ff').onchange=$('ft').onchange=function(){F.c=$('fc').value;F.from=$('ff').value;F.to=$('ft').value;render()};
+$('fx').onclick=function(){F={c:'',from:'',to:''};$('ff').value='';$('ft').value='';render()};
+var COLS=['type','id','customer','heads','date','amount','principal','interest','rate','override','loan_id','pay_type'];
+function q(v){v=v==null?'':String(v);return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
+function toCSV(){var r=[COLS.join(',')];function add(o){r.push(COLS.map(function(c){return q(o[c])}).join(','))}
+ add({type:'setting',customer:'rate_per_head',amount:S.rate});
+ S.customers.forEach(function(c){add({type:'customer',id:c.id,customer:c.name,heads:c.heads})});
+ S.deposits.forEach(function(d){add({type:'deposit',id:d.id,customer:cname(d.customer),date:d.date,amount:d.amount})});
+ S.loans.forEach(function(l){add({type:'loan',id:l.id,customer:cname(l.customer),date:l.date,principal:l.principal,interest:l.interest,rate:l.rate,override:l.override?1:''})});
+ S.payments.forEach(function(p){add({type:'payment',id:p.id,date:p.date,amount:p.amount,loan_id:p.loan,pay_type:p.type})});
+ return '\uFEFF'+r.join('\n')}
+function parseCSV(t){var rows=[],row=[],f='',inq=false;t=t.replace(/^\uFEFF/,'');
+ for(var i=0;i<t.length;i++){var ch=t[i];
+  if(inq){if(ch==='"'){if(t[i+1]==='"'){f+='"';i++}else inq=false}else f+=ch}
+  else if(ch==='"')inq=true;
+  else if(ch===','){row.push(f);f=''}
+  else if(ch==='\n'||ch==='\r'){if(ch==='\r'&&t[i+1]==='\n')i++;row.push(f);rows.push(row);row=[];f=''}
+  else f+=ch}
+ if(f!==''||row.length){row.push(f);rows.push(row)}
+ return rows}
+function importCSV(text){var rows=parseCSV(text);if(!rows.length)return;var h=rows.shift().map(function(x){return x.trim().toLowerCase()}),n=0,sk=0;
+ var byName=function(nm){nm=(nm||'').trim().toLowerCase();return S.customers.find(function(x){return x.name.toLowerCase()===nm})};
+ var ensure=function(nm){var c=byName(nm);if(!c){c={id:uid(),name:(nm||'').trim(),heads:1};S.customers.push(c)}return c};
+ var has=function(a,id){return id&&a.some(function(x){return x.id===id})};
+ var okD=function(d){return /^\d{4}-\d{2}-\d{2}$/.test(d)};var num=function(v){return parseFloat(v)||0};
+ rows.forEach(function(r){if(r.join('')==='')return;var o={};h.forEach(function(k,i){o[k]=(r[i]||'').trim()});var t=o.type;
+  if(t==='setting'){if(num(o.amount))S.rate=num(o.amount);n++}
+  else if(t==='customer'){if(!o.customer||byName(o.customer)){sk++;return}S.customers.push({id:o.id||uid(),name:o.customer,heads:parseInt(o.heads,10)||1});n++}
+  else if(t==='deposit'){if(!o.customer||!okD(o.date)||has(S.deposits,o.id)){sk++;return}S.deposits.push({id:o.id||uid(),customer:ensure(o.customer).id,date:o.date,amount:num(o.amount)});n++}
+  else if(t==='loan'){if(!o.customer||!okD(o.date)||has(S.loans,o.id)){sk++;return}var pr=num(o.principal),ov=o.override!==''&&o.override!=='0',rt=num(o.rate),it=o.interest!==''?num(o.interest):Math.round(pr*rt)/100;S.loans.push({id:o.id||uid(),customer:ensure(o.customer).id,date:o.date,principal:pr,interest:it,rate:rt,override:ov});n++}
+  else if(t==='payment'){if(!S.loans.some(function(l){return l.id===o.loan_id})||!okD(o.date)||has(S.payments,o.id)){sk++;return}S.payments.push({id:o.id||uid(),loan:o.loan_id,type:o.pay_type==='principal'?'principal':'interest',date:o.date,amount:num(o.amount)});n++}
+  else sk++});
+ commit();$('msg').textContent='Imported '+n+' rows'+(sk?', skipped '+sk+' (duplicates, unknown loan_id, or dates not in YYYY-MM-DD)':'')}
+function blobDl(name,data,mime){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type:mime}));a.download=name;document.body.appendChild(a);a.click();a.remove()}
+function dl(name,data,mime){if(window.claude&&claude.use){claude.use('downloads').then(function(d){if(d)return d.save({filename:name,data:data});blobDl(name,data,mime)}).catch(function(){})}else blobDl(name,data,mime)}
+$('ex').onclick=function(e){e.preventDefault();dl('ledger-'+today()+'.csv',toCSV(),'text/csv')};
+$('im').onclick=function(e){e.preventDefault();$('fi').click()};
+$('fi').onchange=function(){var f=this.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(){importCSV(String(rd.result))};rd.readAsText(f);this.value=''};
+$('fPay').onsubmit=function(e){e.preventDefault();if(!$('pl').value)return;S.payments.push({id:uid(),loan:$('pl').value,type:$('pt').value,date:$('pd').value,amount:parseFloat($('pa').value)||0});$('pa').value='';commit()};
+document.addEventListener('click',function(e){var k=e.target.getAttribute&&e.target.getAttribute('data-del');if(!k)return;var t=k[0],id=k.slice(2);
+  if(!confirm('Delete this entry?'+(t==='c'?' Its deposits and loans will be removed too.':t==='l'?' Its payments will be removed too.':'')))return;
+  if(t==='c'){var lid=S.loans.filter(function(l){return l.customer===id}).map(function(l){return l.id});S.payments=S.payments.filter(function(p){return lid.indexOf(p.loan)<0});S.loans=S.loans.filter(function(l){return l.customer!==id});S.deposits=S.deposits.filter(function(d){return d.customer!==id});S.customers=S.customers.filter(function(c){return c.id!==id})}
+  if(t==='d')S.deposits=S.deposits.filter(function(d){return d.id!==id});
+  if(t==='l'){S.payments=S.payments.filter(function(p){return p.loan!==id});S.loans=S.loans.filter(function(l){return l.id!==id})}
+  if(t==='p')S.payments=S.payments.filter(function(p){return p.id!==id});
+  commit()});
+
+['dd','ld','pd'].forEach(function(i){$(i).value=today()});
+if(!window.supabase||CFG.url.indexOf('YOUR_')===0){show(false);$('lmsg').textContent='Set your Supabase URL and anon key (CFG) near the top of the script.';$('st').textContent='not configured'}
+else{sb=supabase.createClient(CFG.url,CFG.key);
+ sb.auth.getSession().then(function(r){if(r.data.session){show(true);pull()}else{show(false);$('st').textContent='signed out'}});
+ $('fLogin').onsubmit=function(e){e.preventDefault();sb.auth.signInWithPassword({email:$('le').value,password:$('lw').value}).then(function(r){if(r.error){$('lmsg').textContent=r.error.message;return}$('lw').value='';show(true);pull()})};
+ $('so').onclick=function(e){e.preventDefault();sb.auth.signOut().then(function(){S={rate:0,customers:[],deposits:[],loans:[],payments:[]};ver=null;render();show(false);$('st').textContent='signed out'})};
+ window.addEventListener('focus',function(){if($('app').style.display!=='none')pull()})}
+nav();render();
+})();
+</script></main></body></html>
