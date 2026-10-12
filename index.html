@@ -6,6 +6,10 @@
   window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
 </script>
 <script defer src="/_vercel/insights/script.js"></script>
+<script type="module">
+  import { inject } from 'https://cdn.jsdelivr.net/npm/@vercel/analytics@2/+esm';
+  inject();
+</script>
 <style>
 :root{--bg:#f5f5f7;--card:#fff;--tx:#1d1d1f;--mu:#6e6e73;--bd:rgba(0,0,0,.1);--ac:#0071e3;--ac2:#f5f5f7;--rd:#d70015;--ok:#248a3d;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#000;--card:#1c1c1e;--tx:#f5f5f7;--mu:#a1a1a6;--bd:rgba(255,255,255,.14);--ac:#2997ff;--ac2:#2c2c2e;--rd:#ff453a;--ok:#30d158}}
