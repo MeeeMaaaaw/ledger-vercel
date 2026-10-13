@@ -2,14 +2,6 @@
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Savings & Lending Ledger</title>
-<script>
-  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
-</script>
-<script defer src="/_vercel/insights/script.js"></script>
-<script type="module">
-  import { inject } from 'https://cdn.jsdelivr.net/npm/@vercel/analytics@2/+esm';
-  inject();
-</script>
 <style>
 :root{--bg:#f5f5f7;--card:#fff;--tx:#1d1d1f;--mu:#6e6e73;--bd:rgba(0,0,0,.1);--ac:#0071e3;--ac2:#f5f5f7;--rd:#d70015;--ok:#248a3d;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#000;--card:#1c1c1e;--tx:#f5f5f7;--mu:#a1a1a6;--bd:rgba(255,255,255,.14);--ac:#2997ff;--ac2:#2c2c2e;--rd:#ff453a;--ok:#30d158}}
@@ -126,14 +118,14 @@ function sum(a,f){return a.reduce(function(t,x){return t+(f?f(x):x)},0)}
 function per(c){return S.rate*c.heads/2}
 
 var CFG={url:'YOUR_SUPABASE_URL',key:'YOUR_SUPABASE_ANON_KEY'};
-var sb=null,ver=null;
+var sb=null,ver=null,saving=0,gen=0;
 function save(){
-  if(!sb)return;var now=new Date().toISOString();
+  if(!sb)return;var now=new Date().toISOString();saving++;gen++;
   var q=ver?sb.from('ledger').update({data:S,updated_at:now}).eq('id','main').eq('updated_at',ver).select():sb.from('ledger').insert({id:'main',data:S,updated_at:now}).select();
-  q.then(function(r){if(r.error){$('st').textContent='save failed: '+r.error.message;return}
+  q.then(function(r){saving--;if(r.error){$('st').textContent='save failed: '+r.error.message;return}
    if(!r.data||!r.data.length){$('st').textContent='Someone else saved first. Reloaded the latest, please redo your last entry.';pull();return}
-   ver=r.data[0].updated_at;$('st').textContent='saved'})}
-function pull(){return sb.from('ledger').select('data,updated_at').eq('id','main').maybeSingle().then(function(r){if(r.error){$('st').textContent='load failed: '+r.error.message;return}
+   ver=r.data[0].updated_at;$('st').textContent='saved'},function(){saving--;$('st').textContent='save failed (network)'})}
+function pull(){if(saving>0)return Promise.resolve();var g=gen;return sb.from('ledger').select('data,updated_at').eq('id','main').maybeSingle().then(function(r){if(r.error){$('st').textContent='load failed: '+r.error.message;return}if(g!==gen||saving>0)return;if(r.data&&r.data.updated_at===ver){$('st').textContent='synced';return}
   var old=base?JSON.parse(base):null;if(r.data){S=Object.assign({rate:0,customers:[],deposits:[],loans:[],payments:[]},r.data.data);ver=r.data.updated_at}base=JSON.stringify(S);render();if(old){var m=diff(old,S);if(m.length)dlg('Updated by someone else',m)}$('st').textContent='synced'})}
 function show(on){$('app').style.display=on?'':'none';$('login').style.display=on?'none':''}
 function load(j){try{var o=JSON.parse(j);if(o&&o.customers)S=Object.assign({rate:0,customers:[],deposits:[],loans:[],payments:[]},o)}catch(e){}}
@@ -224,7 +216,7 @@ $('dok').onclick=function(){$('dlg').close()};
 document.addEventListener('input',function(e){var t=e.target;if(t.classList&&t.classList.contains('fq')){F.q=t.value;LIM={};render()}});
 document.addEventListener('click',function(e){var m=e.target.closest&&e.target.closest('[data-more]');if(!m)return;e.preventDefault();var id=m.getAttribute('data-more');LIM[id]=m.getAttribute('data-all')?1e9:(LIM[id]||25)+25;render()});
 document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('[data-go]');if(!a)return;e.preventDefault();var c=a.getAttribute('data-cust');if(c!==null)F.c=c;tab=a.getAttribute('data-go');nav();render();var el=$(a.getAttribute('data-to'));setTimeout(function(){if(el)el.scrollIntoView({behavior:'smooth',block:'start'})},60)});
-function applyRemote(j,q){var old=base?JSON.parse(base):null;load(j);base=JSON.stringify(S);render();if(old&&!q){var m=diff(old,S);if(m.length)dlg('Updated by someone else',m)}}
+function applyRemote(j,q){if(base&&j===base)return;var old=base?JSON.parse(base):null;load(j);base=JSON.stringify(S);render();if(old&&!q){var m=diff(old,S);if(m.length)dlg('Updated by someone else',m)}}
 function commit(){var m=base?diff(JSON.parse(base),S):[];base=JSON.stringify(S);save();render();if(m.length)dlg('Change recorded',m)}
 $('dc').oninput=function(){$('da').value='';updHint()};
 $('fRate').onsubmit=function(e){e.preventDefault();S.rate=parseFloat($('rate').value)||0;commit()};
